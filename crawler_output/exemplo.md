@@ -1,0 +1,1 @@
+# aqui serão guardados os resultados do crawler
