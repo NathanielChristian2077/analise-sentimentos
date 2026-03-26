@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+from processador import ProcessadorTexto
 
 class AdoroCinema:
 
@@ -43,4 +44,11 @@ sinopse = crawler.extrairSinopseFilme(filme)
 crawler.salvarSinopseFilme(filme, sinopse)
 comentarios = crawler.extrairComentariosFilme(filme, n)
 crawler.salvarComentariosFilme(filme, comentarios)
-print('Programa executado com sucesso. Consulte os arquivos gerados com a sinopse e os comentários do filme.')
+print('Crawler executado com sucesso. Os comentários e sinope estão em ../crawler_output')
+print()
+
+processador = ProcessadorTexto()
+caminhoArquivo = '../crawler_output/' + filme + '_comentarios.txt'
+
+resultado = processador.processar_arquivo(caminhoArquivo)
+print(resultado)
