@@ -1,54 +1,95 @@
 import requests
 from bs4 import BeautifulSoup
-from processador import ProcessadorTexto
 
-class AdoroCinema:
 
-    crawler_output_path = '../crawler_output/'
+class AdoroCinemaFilmes:
+    BASE_URL = 'https://www.adorocinema.com/filmes/filme-'
+    CRAWLER_OUTPUT_PATH = '../crawler_output/'
 
-    def extrairSinopseFilme (self, filme):      
-        url = "https://www.adorocinema.com/filmes/filme-" + filme +'/'
-        htmlFilme = requests.get(url).text
-        bsS = BeautifulSoup(htmlFilme, 'html.parser')
-        sinopse = bsS.find('div', class_="content-txt").get_text(strip=True)
-        return sinopse
-    
-    def salvarSinopseFilme(self, filme, sinopse):
-        arq_saida = open(self.crawler_output_path+filme+'_sinopse.txt', 'w',encoding='utf-8')
-        for line in sinopse:
-            arq_saida.write(line)
-        arq_saida.close()
+    def __init__(self):
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0'
+        }
 
-    def extrairComentariosFilme(self, filme, n):
+    def _fazer_request(self, url):
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
+        return response.text
+
+    def extrair_titulo_e_sinopse(self, filme):
+        url = f'{self.BASE_URL}{filme}/'
+        html = self._fazer_request(url)
+        soup = BeautifulSoup(html, 'html.parser')
+
+        titulo = ''
+        sinopse = ''
+
+        titulo_tag = soup.find('h1')
+        if titulo_tag:
+            titulo = titulo_tag.get_text(strip=True)
+
+        sinopse_tag = soup.find('div', class_='content-txt')
+        if sinopse_tag:
+            sinopse = sinopse_tag.get_text(strip=True)
+
+        return titulo, sinopse
+
+    def extrair_comentarios_filme(self, filme, paginas_comentarios):
         comentarios = []
-        for i in range(1,n+1):
-            url = 'http://www.adorocinema.com/filmes/filme-' + filme + '/criticas/espectadores/?page=' + str(i)
-            htmlComentarios = requests.get(url).text
-            bsC = BeautifulSoup(htmlComentarios, 'html.parser')
-            comentarios_com_tags = bsC.find_all('div', class_="content-txt review-card-content")
-            for comentario_com_tag in comentarios_com_tags:
-                comentarios.append(comentario_com_tag.get_text().strip())
+        comentarios_vistos = set()
+
+        for pagina in range(1, paginas_comentarios + 1):
+            url = f'{self.BASE_URL}{filme}/criticas/espectadores/?page={pagina}'
+            html = self._fazer_request(url)
+            soup = BeautifulSoup(html, 'html.parser')
+
+            comentarios_tags = soup.find_all('div', class_='content-txt review-card-content')
+
+            if not comentarios_tags:
+                print(f'Página {pagina}: nenhum comentário encontrado. Encerrando coleta.')
+                break
+
+            novos_na_pagina = 0
+
+            for comentario_tag in comentarios_tags:
+                comentario = comentario_tag.get_text().strip()
+
+                if comentario and comentario not in comentarios_vistos:
+                    comentarios.append(comentario)
+                    comentarios_vistos.add(comentario)
+                    novos_na_pagina += 1
+
+            print(f'Página {pagina}: {novos_na_pagina} comentários novos.')
+
+            if novos_na_pagina == 0:
+                print(f'Página {pagina}: nenhum comentário novo. Encerrando coleta.')
+                break
+
         return comentarios
 
-    def salvarComentariosFilme(self, filme, comentarios):
-        arq_saida = open(self.crawler_output_path+filme+'_comentarios.txt', 'w', encoding='utf-8')
-        for comentario in comentarios:
-            arq_saida.write(comentario + '\n\n')
-        arq_saida.close()
+    def extrair_dados_filme(self, filme, paginas_comentarios=1):
+        titulo, sinopse = self.extrair_titulo_e_sinopse(filme)
+        comentarios = self.extrair_comentarios_filme(filme, paginas_comentarios)
 
+        return {
+            'codigo': str(filme),
+            'titulo': titulo,
+            'sinopse': sinopse,
+            'comentarios': comentarios
+        }
 
-filme = input('Digite o código do filme, conforme listado na barra de endereço do site https://www.adorocinema.com/: ')
-n = int(input('Digite quantas páginas de comentários você deseja consultar: '))
-crawler = AdoroCinema()
-sinopse = crawler.extrairSinopseFilme(filme)
-crawler.salvarSinopseFilme(filme, sinopse)
-comentarios = crawler.extrairComentariosFilme(filme, n)
-crawler.salvarComentariosFilme(filme, comentarios)
-print('Crawler executado com sucesso. Os comentários e sinope estão em ../crawler_output')
-print()
+    def salvar_sinopse_filme(self, filme, sinopse):
+        caminho = f'{self.CRAWLER_OUTPUT_PATH}{filme}_sinopse.txt'
+        with open(caminho, 'w', encoding='utf-8') as arquivo:
+            arquivo.write(sinopse)
 
-processador = ProcessadorTexto()
-caminhoArquivo = '../crawler_output/' + filme + '_comentarios.txt'
+    def salvar_comentarios_filme(self, filme, comentarios):
+        caminho = f'{self.CRAWLER_OUTPUT_PATH}{filme}_comentarios.txt'
+        with open(caminho, 'w', encoding='utf-8') as arquivo:
+            for comentario in comentarios:
+                arquivo.write(comentario + '\n\n')
 
-resultado = processador.processar_arquivo(caminhoArquivo)
-print(resultado)
+    def salvar_dados_filme(self, dados_filme):
+        codigo = dados_filme['codigo']
+        self.salvar_sinopse_filme(codigo, dados_filme['sinopse'])
+        self.salvar_comentarios_filme(codigo, dados_filme['comentarios'])

@@ -1,72 +1,64 @@
-from __future__ import annotations
-
 import re
 import time
-from typing import Iterable, List
-
 import requests
 from bs4 import BeautifulSoup
 
 
-def _extract_codes_from_soup(soup: BeautifulSoup) -> Iterable[str]:
-    links = soup.find_all("a", class_="meta-title-link")
-    for link in links:
-        href = link.get("href", "")
-        match = re.search(r"/filmes/filme-(\d+)/", href)
-        if match:
-            yield match.group(1)
+class MovieGetter:
+    BASE_URL = 'https://www.adorocinema.com/filmes-todos/'
 
+    def __init__(self, delay=0.0):
+        self.delay = delay
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0'
+        }
 
-def get_movie_codes(
-    num_movies: int,
-    num_pages: int,
-    output_file: str | None = None,
-    delay: float = 0.0,
-) -> List[str]:
-    codes: List[str] = []
-    base_url = "https://www.adorocinema.com/filmes-todos/"
+    def extrair_codigos_pagina(self, html):
+        soup = BeautifulSoup(html, 'html.parser')
+        links = soup.find_all('a', class_='meta-title-link')
 
-    for page in range(1, num_pages + 1):
-        url = base_url if page == 1 else f"{base_url}?page={page}"
-        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, "html.parser")
-        for code in _extract_codes_from_soup(soup):
-            codes.append(code)
-            if len(codes) >= num_movies:
+        codigos = []
+        for link in links:
+            href = link.get('href', '')
+            match = re.search(r'/filmes/filme-(\d+)/', href)
+            if match:
+                codigos.append(match.group(1))
+
+        return codigos
+
+    def obter_codigo_unico(self, codigo):
+        return [str(codigo).strip()]
+
+    def obter_varios_codigos(self, quantidade):
+        codigos = []
+        pagina = 1
+
+        while len(codigos) < quantidade:
+            url = self.BASE_URL if pagina == 1 else f'{self.BASE_URL}?page={pagina}'
+
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
+
+            codigos_pagina = self.extrair_codigos_pagina(response.text)
+
+            if not codigos_pagina:
                 break
-        if len(codes) >= num_movies:
-            break
-        if delay > 0:
-            time.sleep(delay)
 
-    if output_file:
-        with open(output_file, "w", encoding="utf-8") as f:
-            for code in codes:
-                f.write(f"{code}\n")
-    return codes
+            for codigo in codigos_pagina:
+                if codigo not in codigos:
+                    codigos.append(codigo)
 
+                if len(codigos) >= quantidade:
+                    break
 
-if __name__ == "__main__":
-    import argparse
+            pagina += 1
 
-    parser = argparse.ArgumentParser(
-        description="Extrai códigos de filmes do AdoroCinema.",
-    )
-    parser.add_argument(
-        "num_movies", type=int, help="número máximo de filmes a extrair"
-    )
-    parser.add_argument(
-        "num_pages", type=int, help="número máximo de páginas a percorrer"
-    )
-    parser.add_argument(
-        "--output", "-o", type=str, default="movie_code_inputs.txt", help="arquivo de saída"
-    )
+            if self.delay > 0:
+                time.sleep(self.delay)
 
-    args = parser.parse_args()
-    codes = get_movie_codes(
-        num_movies=args.num_movies,
-        num_pages=args.num_pages,
-        output_file=args.output,
-    )
-    print(f"Extraídos {len(codes)} códigos de filme.")
+        return codigos
+
+    def salvar_codigos(self, codigos, caminho='movie_codes.txt'):
+        with open(caminho, 'w', encoding='utf-8') as f:
+            for codigo in codigos:
+                f.write(codigo + '\n')
