@@ -6,7 +6,7 @@ from processador import ProcessadorTexto
 from classificador import ClassificadorSentimento
 
 
-OUTPUT_PATH = '../crawler_output/'
+OUTPUT_PATH = './crawler_output/'
 
 
 def salvar_resultado_final(dados_filme, analise_filme):
@@ -17,7 +17,7 @@ def salvar_resultado_final(dados_filme, analise_filme):
     resumo = analise_filme['resumo']
     categoria_final = analise_filme['categoria_final']
 
-    caminho_saida = f'{OUTPUT_PATH}{codigo}_resultado.txt'
+    caminho_saida = f'{OUTPUT_PATH}{titulo}_{codigo}_resultado.txt'
 
     with open(caminho_saida, 'w', encoding='utf-8') as arquivo:
         arquivo.write(f'Código do filme: {codigo}\n')
@@ -40,6 +40,7 @@ def salvar_resultado_final(dados_filme, analise_filme):
         arquivo.write(f'Comentários negativos: {resumo["negativos_qtd"]} ({resumo["negativos_pct"]:.2f}%)\n')
         arquivo.write(f'Comentários neutros: {resumo["neutros_qtd"]} ({resumo["neutros_pct"]:.2f}%)\n')
         arquivo.write(f'Categoria final do filme: {categoria_final}\n')
+        arquivo.close()
 
 
 def exibir_resumo_console(dados_filme, analise_filme):

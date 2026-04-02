@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 
 class AdoroCinemaFilmes:
     BASE_URL = 'https://www.adorocinema.com/filmes/filme-'
-    CRAWLER_OUTPUT_PATH = '../crawler_output/'
+    CRAWLER_OUTPUT_PATH = './crawler_output/'
 
     def __init__(self):
         self.headers = {
